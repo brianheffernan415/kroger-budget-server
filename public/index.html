@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Kroger Budget">
+<title>Kroger Budget</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; }
+.app { max-width: 430px; margin: 0 auto; background: #fff; min-height: 100vh; display: flex; flex-direction: column; }
+.header { padding: 16px; border-bottom: 1px solid #eee; display: flex; align-items: center; justify-content: space-between; }
+.header h1 { font-size: 18px; font-weight: 600; color: #111; }
+.nav { display: flex; border-bottom: 1px solid #eee; background: #fff; position: sticky; top: 0; z-index: 10; }
+.nav-btn { flex: 1; padding: 10px 4px; font-size: 11px; background: none; border: none; border-bottom: 2px solid transparent; color: #888; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.nav-btn.active { color: #2563eb; border-bottom-color: #2563eb; }
+.screen { display: none; flex: 1; flex-direction: column; padding: 16px; gap: 12px; }
+.screen.active { display: flex; }
+.metric-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.metric { background: #f8f8f8; border-radius: 10px; padding: 12px; }
+.metric-label { font-size: 12px; color: #888; margin-bottom: 4px; }
+.metric-value { font-size: 22px; font-weight: 600; color: #111; }
+.metric-value.danger { color: #dc2626; }
+.metric-value.success { color: #16a34a; }
+.card { background: #fff; border: 1px solid #eee; border-radius: 12px; padding: 14px; }
+.search-row { display: flex; gap: 8px; }
+.search-row input { flex: 1; padding: 10px 14px; border: 1px solid #ddd; border-radius: 10px; font-size: 15px; background: #fff; color: #111; outline: none; }
+.search-row input:focus { border-color: #2563eb; }
+.search-row button { padding: 10px 16px; border-radius: 10px; background: #2563eb; border: none; font-size: 15px; color: #fff; cursor: pointer; }
+.product-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
+.product-item:last-child { border-bottom: none; }
+.product-name { font-size: 14px; font-weight: 500; color: #111; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.product-size { font-size: 12px; color: #888; }
+.product-price { font-size: 15px; font-weight: 600; color: #111; margin: 0 10px; white-space: nowrap; }
+.add-btn { width: 30px; height: 30px; border-radius: 50%; background: #2563eb; border: none; color: #fff; cursor: pointer; font-size: 20px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.list-item { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
+.list-item:last-child { border-bottom: none; }
+.check-circle { width: 22px; height: 22px; border-radius: 50%; border: 2px solid #ddd; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.check-circle.checked { background: #16a34a; border-color: #16a34a; color: #fff; }
+.li-name { font-size: 14px; color: #111; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.li-name.checked { text-decoration: line-through; color: #aaa; }
+.li-price { font-size: 13px; color: #888; }
+.rm-btn { background: none; border: none; color: #ccc; cursor: pointer; padding: 4px; font-size: 18px; }
+.settings-label { font-size: 13px; color: #666; margin-bottom: 5px; display: block; }
+.settings-input { width: 100%; padding: 10px 14px; border: 1px solid #ddd; border-radius: 10px; font-size: 15px; background: #fff; color: #111; margin-bottom: 12px; outline: none; }
+.settings-input:focus { border-color: #2563eb; }
+.save-btn { width: 100%; padding: 12px; background: #2563eb; border: none; border-radius: 10px; font-size: 15px; cursor: pointer; color: #fff; font-weight: 500; }
+.status-bar { font-size: 13px; padding: 10px 14px; border-radius: 10px; text-align: center; margin-top: 10px; }
+.status-bar.ok { background: #dcfce7; color: #16a34a; }
+.status-bar.err { background: #fee2e2; color: #dc2626; }
+.status-bar.idle { background: #f3f4f6; color: #888; }
+.empty { text-align: center; padding: 24px 16px; color: #aaa; font-size: 14px; }
+.total-row { display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid #eee; margin-top: 4px; }
+.budget-bar-wrap { background: #f0f0f0; border-radius: 99px; height: 10px; overflow: hidden; }
+.budget-bar { height: 10px; border-radius: 99px; transition: width 0.3s; }
+.section-title { font-size: 13px; font-weight: 600; color: #888; letter-spacing: 0.05em; text-transform: uppercase; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <h1>🛒 Kroger Budget</h1>
+    <span id="store-label" style="font-size:12px;color:#aaa;">not connected</span>
+  </div>
+  <div class="nav">
+    <button class="nav-btn active" onclick="show('dashboard')" id="nav-dashboard">📊<span>Dashboard</span></button>
+    <button class="nav-btn" onclick="show('search')" id="nav-search">🔍<span>Search</span></button>
+    <button class="nav-btn" onclick="show('list')" id="nav-list">📋<span>My List</span></button>
+    <button class="nav-btn" onclick="show('settings')" id="nav-settings">⚙️<span>Settings</span></button>
+  </div>
+
+  <div class="screen active" id="screen-dashboard">
+    <div class="metric-row">
+      <div class="metric"><div class="metric-label">Weekly Budget</div><div class="metric-value" id="d-budget">$—</div></div>
+      <div class="metric"><div class="metric-label">List Total</div><div class="metric-value" id="d-total">$0.00</div></div>
+    </div>
+    <div class="metric">
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+        <span class="metric-label" style="margin:0;">Budget used</span>
+        <span style="font-size:13px;color:#888;" id="d-pct">0%</span>
+      </div>
+      <div class="budget-bar-wrap"><div class="budget-bar" id="d-bar" style="width:0%;background:#2563eb;"></div></div>
+    </div>
+    <div class="metric-row">
+      <div class="metric"><div class="metric-label">Items</div><div class="metric-value" id="d-items">0</div></div>
+      <div class="metric"><div class="metric-label">Remaining</div><div class="metric-value" id="d-rem">$—</div></div>
+    </div>
+    <div class="card">
+      <div class="section-title" style="margin-bottom:10px;">Recent Additions</div>
+      <div id="d-recent"><div class="empty">Your list is empty — search for items to add</div></div>
+    </div>
+  </div>
+
+  <div class="screen" id="screen-search">
+    <div class="search-row">
+      <input type="text" id="search-input" placeholder="Search Kroger products…" onkeydown="if(event.key==='Enter')doSearch()" />
+      <button onclick="doSearch()">🔍</button>
+    </div>
+    <div id="search-results"><div class="empty">Enter a product name above to search</div></div>
+  </div>
+
+  <div class="screen" id="screen-list">
+    <div class="card">
+      <div id="list-items"><div class="empty">No items yet — use search to add products</div></div>
+      <div id="list-total-row" style="display:none;" class="total-row">
+        <span style="font-size:14px;color:#888;">Estimated total</span>
+        <span style="font-size:20px;font-weight:600;color:#111;" id="list-total">$0.00</span>
+      </div>
+    </div>
+    <button class="save-btn" onclick="clearChecked()" style="background:#dc2626;">Clear checked items</button>
+  </div>
+
+  <div class="screen" id="screen-settings">
+    <div class="section-title">Kroger API Credentials</div>
+    <div class="card" style="display:flex;flex-direction:column;">
+      <label class="settings-label">Client ID</label>
+      <input class="settings-input" type="text" id="cfg-id" placeholder="Paste your client ID here" />
+      <label class="settings-label">Client Secret</label>
+      <input class="settings-input" type="password" id="cfg-secret" placeholder="Paste your client secret here" />
+      <label class="settings-label">Store Location ID <span style="color:#aaa;">(optional)</span></label>
+      <input class="settings-input" type="text" id="cfg-loc" placeholder="e.g. 01400376" style="margin-bottom:0;" />
+      <button class="save-btn" onclick="saveSettings()" style="margin-top:12px;">Save & Connect</button>
+      <div class="status-bar idle" id="api-status">Not connected — enter credentials above</div>
+    </div>
+    <div class="section-title">Weekly Budget</div>
+    <div class="card" style="display:flex;flex-direction:column;">
+      <label class="settings-label">Budget amount ($)</label>
+      <input class="settings-input" type="number" id="cfg-budget" placeholder="e.g. 150" min="0" style="margin-bottom:0;" />
+      <button class="save-btn" onclick="saveBudget()" style="margin-top:12px;">Save Budget</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SERVER = '';
+let S = { id:'', secret:'', loc:'', budget:0, token:null, exp:0, list:[], results:[] };
+
+function load() {
+  try { const d = localStorage.getItem('kgb_app'); if(d) Object.assign(S, JSON.parse(d)); } catch(e){}
+  if(S.id) document.getElementById('cfg-id').value = S.id;
+  if(S.secret) document.getElementById('cfg-secret').value = S.secret;
+  if(S.loc) document.getElementById('cfg-loc').value = S.loc;
+  if(S.budget) document.getElementById('cfg-budget').value = S.budget;
+  if(S.id && S.secret) setStatus('ok','Credentials loaded — tap Save & Connect to test');
+  refresh();
+}
+
+function save() { try { localStorage.setItem('kgb_app', JSON.stringify(S)); } catch(e){} }
+
+function show(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('screen-'+name).classList.add('active');
+  document.getElementById('nav-'+name).classList.add('active');
+}
+
+function setStatus(type, msg) {
+  const el = document.getElementById('api-status');
+  el.className = 'status-bar ' + type;
+  el.textContent = msg;
+}
+
+function saveSettings() {
+  S.id = document.getElementById('cfg-id').value.trim();
+  S.secret = document.getElementById('cfg-secret').value.trim();
+  S.loc = document.getElementById('cfg-loc').value.trim();
+  S.token = null; S.exp = 0;
+  save();
+  if(!S.id || !S.secret) { setStatus('err','Please enter both Client ID and Secret'); return; }
+  setStatus('idle','Testing connection…');
+  getToken().then(() => {
+    setStatus('ok','Connected successfully! 🎉');
+    document.getElementById('store-label').textContent = S.loc ? 'Store #'+S.loc : 'Connected';
+  }).catch(e => setStatus('err','Connection failed: '+e.message));
+}
+
+function saveBudget() {
+  S.budget = parseFloat(document.getElementById('cfg-budget').value) || 0;
+  save(); refresh();
+}
+
+async function getToken() {
+  if(S.token && Date.now() < S.exp) return S.token;
+  const r = await fetch('/token', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ clientId: S.id, clientSecret: S.secret })
+  });
+  if(!r.ok) throw new Error('auth failed — check your credentials');
+  const d = await r.json();
+  if(d.error) throw new Error(d.error);
+  S.token = d.access_token;
+  S.exp = Date.now() + (d.expires_in - 60) * 1000;
+  return S.token;
+}
+
+async function doSearch() {
+  const q = document.getElementById('search-input').value.trim();
+  if(!q) return;
+  if(!S.id || !S.secret) {
+    document.getElementById('search-results').innerHTML = '<div class="status-bar err" style="margin-top:8px;">Go to Settings and add your Kroger API credentials first</div>';
+    return;
+  }
+  document.getElementById('search-results').innerHTML = '<div class="empty">Searching…</div>';
+  try {
+    const tok = await getToken();
+    const r = await fetch('/search', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ token: tok, query: q, locationId: S.loc })
+    });
+    if(!r.ok) throw new Error('search failed');
+    const d = await r.json();
+    S.results = (d.data||[]).map(p => ({
+      id: p.productId,
+      name: p.description,
+      size: (p.items&&p.items[0]&&p.items[0].size)||'',
+      price: (p.items&&p.items[0]&&p.items[0].price&&p.items[0].price.regular)||null
+    }));
+    renderSearch();
+  } catch(e) {
+    document.getElementById('search-results').innerHTML = '<div class="status-bar err" style="margin-top:8px;">Search failed: '+e.message+'</div>';
+  }
+}
+
+function renderSearch() {
+  const el = document.getElementById('search-results');
+  if(!S.results.length) { el.innerHTML = '<div class="empty">No results found</div>'; return; }
+  el.innerHTML = '<div class="card" style="padding:0 14px;">'+
+    S.results.map(p=>`<div class="product-item">
+      <div style="flex:1;min-width:0;">
+        <div class="product-name">${esc(p.name)}</div>
+        <div class="product-size">${esc(p.size)}</div>
+      </div>
+      <div class="product-price">${p.price!=null?'$'+p.price.toFixed(2):'—'}</div>
+      <button class="add-btn" onclick='addItem(${JSON.stringify(p.id)})'>+</button>
+    </div>`).join('')+'</div>';
+}
+
+function addItem(id) {
+  const p = S.results.find(x=>x.id===id);
+  if(!p) return;
+  if(S.list.find(x=>x.id===id)) { alert('Already in your list!'); return; }
+  S.list.push({...p, checked:false});
+  save(); refresh();
+}
+
+function toggle(id) {
+  const i = S.list.find(x=>x.id===id);
+  if(i){ i.checked=!i.checked; save(); renderList(); }
+}
+
+function remove(id) { S.list=S.list.filter(x=>x.id!==id); save(); refresh(); }
+function clearChecked() { S.list=S.list.filter(x=>!x.checked); save(); refresh(); }
+
+function renderList() {
+  const el = document.getElementById('list-items');
+  const tr = document.getElementById('list-total-row');
+  if(!S.list.length){ el.innerHTML='<div class="empty">No items yet — use search to add products</div>'; tr.style.display='none'; return; }
+  el.innerHTML = S.list.map(p=>`<div class="list-item">
+    <div class="check-circle ${p.checked?'checked':''}" onclick="toggle('${p.id}')">
+      ${p.checked?'✓':''}
+    </div>
+    <div style="flex:1;min-width:0;">
+      <div class="li-name ${p.checked?'checked':''}">${esc(p.name)}</div>
+      <div class="li-price">${p.price!=null?'$'+p.price.toFixed(2):'price unavailable'}</div>
+    </div>
+    <button class="rm-btn" onclick="remove('${p.id}')">🗑</button>
+  </div>`).join('');
+  const t = S.list.reduce((s,x)=>s+(x.price||0),0);
+  document.getElementById('list-total').textContent='$'+t.toFixed(2);
+  tr.style.display='flex';
+}
+
+function refresh() {
+  renderList();
+  const total = S.list.reduce((s,x)=>s+(x.price||0),0);
+  const b = S.budget;
+  const pct = b>0 ? Math.min(100,Math.round(total/b*100)) : 0;
+  const rem = b - total;
+  document.getElementById('d-total').textContent='$'+total.toFixed(2);
+  document.getElementById('d-budget').textContent=b>0?'$'+b.toFixed(2):'$—';
+  document.getElementById('d-items').textContent=S.list.length;
+  document.getElementById('d-pct').textContent=b>0?pct+'%':'—';
+  document.getElementById('d-rem').textContent=b>0?(rem>=0?'$'+rem.toFixed(2):'-$'+Math.abs(rem).toFixed(2)):'$—';
+  const bar=document.getElementById('d-bar');
+  bar.style.width=pct+'%';
+  bar.style.background=pct>90?'#dc2626':pct>70?'#f59e0b':'#2563eb';
+  const remEl=document.getElementById('d-rem');
+  remEl.className='metric-value'+(b>0&&rem<0?' danger':b>0?' success':'');
+  const recent=S.list.slice(-3).reverse();
+  document.getElementById('d-recent').innerHTML=recent.length?
+    recent.map(p=>`<div class="product-item"><div style="flex:1;min-width:0;"><div class="product-name">${esc(p.name)}</div></div><div class="product-price">${p.price!=null?'$'+p.price.toFixed(2):'—'}</div></div>`).join(''):
+    '<div class="empty">Your list is empty — search for items to add</div>';
+}
+
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+load();
+</script>
+</body>
+</html>
