@@ -56,6 +56,18 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .budget-bar-wrap { background: #f0f0f0; border-radius: 99px; height: 10px; overflow: hidden; }
 .budget-bar { height: 10px; border-radius: 99px; transition: width 0.3s; }
 .section-title { font-size: 13px; font-weight: 600; color: #888; letter-spacing: 0.05em; text-transform: uppercase; }
+.modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; }
+.modal-overlay.active { display: flex; }
+.modal { background: #fff; border-radius: 16px; padding: 20px; width: 320px; max-width: 90vw; }
+.modal h2 { font-size: 16px; font-weight: 600; color: #111; margin-bottom: 16px; }
+.modal input { width: 100%; padding: 10px 14px; border: 1px solid #ddd; border-radius: 10px; font-size: 15px; color: #111; outline: none; margin-bottom: 12px; }
+.modal input:focus { border-color: #2563eb; }
+.modal-btns { display: flex; gap: 8px; }
+.modal-btns button { flex: 1; padding: 11px; border-radius: 10px; font-size: 14px; cursor: pointer; font-weight: 500; }
+.btn-cancel { background: #f3f4f6; border: none; color: #666; }
+.btn-add { background: #2563eb; border: none; color: #fff; }
+.manual-add-btn { width: 100%; padding: 12px; background: none; border: 2px dashed #ddd; border-radius: 10px; font-size: 14px; cursor: pointer; color: #888; margin-top: 4px; }
+.manual-add-btn:hover { border-color: #2563eb; color: #2563eb; }
 </style>
 </head>
 <body>
@@ -98,7 +110,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       <input type="text" id="search-input" placeholder="Search Kroger products…" onkeydown="if(event.key==='Enter')doSearch()" />
       <button onclick="doSearch()">🔍</button>
     </div>
-    <div id="search-results"><div class="empty">Enter a product name above to search</div></div>
+    <button class="manual-add-btn" onclick="openManual()">+ Add item manually</button>
+    <div id="search-results"><div class="empty">Search for a product above, or add one manually</div></div>
   </div>
 
   <div class="screen" id="screen-list">
@@ -109,6 +122,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         <span style="font-size:20px;font-weight:600;color:#111;" id="list-total">$0.00</span>
       </div>
     </div>
+    <button class="manual-add-btn" onclick="openManual()">+ Add item manually</button>
     <button class="save-btn" onclick="clearChecked()" style="background:#dc2626;">Clear checked items</button>
   </div>
 
@@ -133,8 +147,20 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   </div>
 </div>
 
+<div class="modal-overlay" id="manual-modal">
+  <div class="modal">
+    <h2>Add item manually</h2>
+    <input type="text" id="manual-name" placeholder="Item name (e.g. Whole Milk)" />
+    <input type="number" id="manual-price" placeholder="Price (e.g. 3.99)" min="0" step="0.01" />
+    <input type="text" id="manual-size" placeholder="Size (e.g. 1 gallon) — optional" />
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeManual()">Cancel</button>
+      <button class="btn-add" onclick="addManual()">Add to list</button>
+    </div>
+  </div>
+</div>
+
 <script>
-const SERVER = '';
 let S = { id:'', secret:'', loc:'', budget:0, token:null, exp:0, list:[], results:[] };
 
 function load() {
@@ -160,6 +186,24 @@ function setStatus(type, msg) {
   const el = document.getElementById('api-status');
   el.className = 'status-bar ' + type;
   el.textContent = msg;
+}
+
+function openManual() { document.getElementById('manual-modal').classList.add('active'); document.getElementById('manual-name').focus(); }
+function closeManual() {
+  document.getElementById('manual-modal').classList.remove('active');
+  document.getElementById('manual-name').value = '';
+  document.getElementById('manual-price').value = '';
+  document.getElementById('manual-size').value = '';
+}
+
+function addManual() {
+  const name = document.getElementById('manual-name').value.trim();
+  const price = parseFloat(document.getElementById('manual-price').value);
+  const size = document.getElementById('manual-size').value.trim();
+  if(!name) { alert('Please enter an item name'); return; }
+  const id = 'manual_' + Date.now();
+  S.list.push({ id, name, size, price: isNaN(price) ? null : price, checked: false, manual: true });
+  save(); refresh(); closeManual();
 }
 
 function saveSettings() {
@@ -234,7 +278,7 @@ function renderSearch() {
         <div class="product-name">${esc(p.name)}</div>
         <div class="product-size">${esc(p.size)}</div>
       </div>
-      <div class="product-price">${p.price!=null?'$'+p.price.toFixed(2):'—'}</div>
+      <div class="product-price">${p.price!=null?'$'+p.price.toFixed(2):'<span style="font-size:12px;color:#aaa;">no price</span>'}</div>
       <button class="add-btn" onclick='addItem(${JSON.stringify(p.id)})'>+</button>
     </div>`).join('')+'</div>';
 }
@@ -243,6 +287,13 @@ function addItem(id) {
   const p = S.results.find(x=>x.id===id);
   if(!p) return;
   if(S.list.find(x=>x.id===id)) { alert('Already in your list!'); return; }
+  if(p.price == null) {
+    const priceInput = prompt('No price found for this item. Enter the price from your Kroger app (or leave blank to add without price):');
+    if(priceInput !== null) {
+      const parsed = parseFloat(priceInput);
+      p.price = isNaN(parsed) ? null : parsed;
+    } else { return; }
+  }
   S.list.push({...p, checked:false});
   save(); refresh();
 }
@@ -252,20 +303,33 @@ function toggle(id) {
   if(i){ i.checked=!i.checked; save(); renderList(); }
 }
 
+function editPrice(id) {
+  const item = S.list.find(x=>x.id===id);
+  if(!item) return;
+  const val = prompt('Enter price for ' + item.name + ':', item.price != null ? item.price.toFixed(2) : '');
+  if(val !== null) {
+    const parsed = parseFloat(val);
+    item.price = isNaN(parsed) ? null : parsed;
+    save(); refresh();
+  }
+}
+
 function remove(id) { S.list=S.list.filter(x=>x.id!==id); save(); refresh(); }
 function clearChecked() { S.list=S.list.filter(x=>!x.checked); save(); refresh(); }
 
 function renderList() {
   const el = document.getElementById('list-items');
   const tr = document.getElementById('list-total-row');
-  if(!S.list.length){ el.innerHTML='<div class="empty">No items yet — use search to add products</div>'; tr.style.display='none'; return; }
+  if(!S.list.length){ el.innerHTML='<div class="empty">No items yet — use search or add manually</div>'; tr.style.display='none'; return; }
   el.innerHTML = S.list.map(p=>`<div class="list-item">
     <div class="check-circle ${p.checked?'checked':''}" onclick="toggle('${p.id}')">
       ${p.checked?'✓':''}
     </div>
     <div style="flex:1;min-width:0;">
       <div class="li-name ${p.checked?'checked':''}">${esc(p.name)}</div>
-      <div class="li-price">${p.price!=null?'$'+p.price.toFixed(2):'price unavailable'}</div>
+      <div class="li-price" onclick="editPrice('${p.id}')" style="cursor:pointer;">
+        ${p.price!=null?'$'+p.price.toFixed(2):'<span style="color:#2563eb;">tap to add price</span>'}
+      </div>
     </div>
     <button class="rm-btn" onclick="remove('${p.id}')">🗑</button>
   </div>`).join('');
