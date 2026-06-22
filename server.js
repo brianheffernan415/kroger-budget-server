@@ -5,7 +5,7 @@ const path = require('path');
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.post('/token', async (req, res) => {
@@ -61,6 +61,46 @@ app.post('/nutrition', async (req, res) => {
       };
     });
     res.json(results);
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/scan-image', async (req, res) => {
+  try {
+    const { imageBase64 } = req.body;
+    const key = process.env.GOOGLE_VISION_KEY;
+    const r = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${key}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requests: [{
+          image: { content: imageBase64 },
+          features: [{ type: 'TEXT_DETECTION', maxResults: 1 }]
+        }]
+      })
+    });
+    const d = await r.json();
+    const text = d.responses && d.responses[0] && d.responses[0].fullTextAnnotation
+      ? d.responses[0].fullTextAnnotation.text
+      : '';
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    const items = [];
+    const priceRegex = /\$?(\d+\.\d{2})/;
+    for(let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const priceMatch = line.match(priceRegex);
+      if(priceMatch) {
+        const price = parseFloat(priceMatch[1]);
+        const name = line.replace(priceRegex, '').replace('$', '').trim();
+        if(name.length > 2) {
+          items.push({ name, price });
+        } else if(i > 0 && lines[i-1].length > 2) {
+          items.push({ name: lines[i-1], price });
+        }
+      }
+    }
+    res.json({ items, rawText: text });
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
