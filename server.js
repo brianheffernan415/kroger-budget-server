@@ -38,6 +38,34 @@ app.post('/search', async (req, res) => {
   }
 });
 
+app.post('/nutrition', async (req, res) => {
+  try {
+    const { query } = req.body;
+    const key = process.env.USDA_API_KEY;
+    const r = await fetch(`https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(query)}&pageSize=5&api_key=${key}`);
+    const d = await r.json();
+    const results = (d.foods || []).map(f => {
+      const nutrients = f.foodNutrients || [];
+      const get = name => {
+        const n = nutrients.find(x => x.nutrientName && x.nutrientName.toLowerCase().includes(name));
+        return n ? Math.round(n.value * 10) / 10 : null;
+      };
+      return {
+        id: f.fdcId,
+        name: f.description,
+        brand: f.brandOwner || '',
+        calories: get('energy'),
+        protein: get('protein'),
+        carbs: get('carbohydrate'),
+        fat: get('total lipid')
+      };
+    });
+    res.json(results);
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
