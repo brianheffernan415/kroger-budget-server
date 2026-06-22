@@ -86,29 +86,60 @@ app.post('/scan-image', async (req, res) => {
       : '';
 
     const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-    const items = [];
-    const skipWords = ['save for later', 'in cart', 'snap ebt', 'backup', 'best available', 'choose backup', 'continue to checkout', 'view offer', 'coupon', 'new look', 'view items', 'estimated total', 'cart', 'shop', 'save', 'health'];
 
+    const skipWords = ['save for later', 'in cart', 'snap ebt', 'backup', 'best available',
+      'choose backup', 'continue to checkout', 'view offer', 'coupon', 'new look',
+      'view items', 'estimated total', 'cart', 'shop', 'save', 'health', 'checkout'];
+
+    const isSkip = line => {
+      const lower = line.toLowerCase();
+      if(skipWords.some(w => lower.includes(w))) return true;
+      if(lower.match(/^\d+\s*(oz|lb|ct|ml|g|kg|fl oz)/i)) return true;
+      if(lower.match(/^[\d\s\$\.\+\-\×x]+$/)) return true;
+      if(line.length < 3) return true;
+      return false;
+    };
+
+    const isProductName = line => {
+      if(isSkip(line)) return false;
+      if(line.match(/^\$/)) return false;
+      if(line.match(/^\d+$/)) return false;
+      return true;
+    };
+
+    // Reconstruct lines — Kroger big price font splits "$1" and "25" onto separate tokens
+    // Join adjacent short numeric lines that look like split prices
+    const joined = [];
     for(let i = 0; i < lines.length; i++) {
-      const line = lines[i];
+      const cur = lines[i];
+      const next = lines[i+1] || '';
+      // Pattern: "$1" followed by "25" => "$1.25"
+      if(cur.match(/^\$\d+$/) && next.match(/^\d{2}$/)) {
+        joined.push(cur + '.' + next);
+        i++; // skip next
+      }
+      // Pattern: "$3.19" with strikethrough duplicate like "$3.69" right after
+      else if(cur.match(/^\$\d+\.\d{2}$/) && next.match(/^\$\d+\.\d{2}$/)) {
+        joined.push(cur); // take the first (sale) price, skip the crossed-out one
+        i++;
+      }
+      else {
+        joined.push(cur);
+      }
+    }
 
-      // Match Kroger price format: $1.25 or $3.19 or $1²⁵ style
-      const priceMatch = line.match(/^\$(\d+)[\.\,](\d{2})$/) || line.match(/^\$(\d+)\.(\d{2})/) || line.match(/\$(\d+\.\d{2})/);
+    const items = [];
+    for(let i = 0; i < joined.length; i++) {
+      const line = joined[i];
+      const priceMatch = line.match(/^\$(\d+\.\d{2})$/);
       if(priceMatch) {
-        const price = parseFloat(priceMatch[0].replace('$',''));
-        // Look at the next few lines for the item name
-        for(let j = i+1; j < Math.min(i+4, lines.length); j++) {
-          const candidate = lines[j];
-          const lower = candidate.toLowerCase();
-          // Skip short lines, size lines, and known UI text
-          if(candidate.length < 4) continue;
-          if(lower.match(/^\d+\s*(oz|lb|ct|ml|g|kg|fl oz)/)) continue;
-          if(skipWords.some(w => lower.includes(w))) continue;
-          if(lower.match(/^\$/) ) continue;
-          if(lower.match(/^[\d\.\$\+\-]+$/)) continue;
-          // This looks like a product name
-          items.push({ name: candidate, price });
-          break;
+        const price = parseFloat(priceMatch[1]);
+        // Look forward for the product name
+        for(let j = i+1; j < Math.min(i+5, joined.length); j++) {
+          if(isProductName(joined[j])) {
+            items.push({ name: joined[j].replace('®','').replace('™','').trim(), price });
+            break;
+          }
         }
       }
     }
