@@ -7,6 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Vitality">
 <title>Vitality</title>
+<script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; }
@@ -61,7 +62,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .modal { background: #fff; border-radius: 16px; padding: 20px; width: 340px; max-width: 92vw; max-height: 85vh; overflow-y: auto; }
 .modal h2 { font-size: 16px; font-weight: 600; color: #111; margin-bottom: 16px; }
 .modal input, .modal select { width: 100%; padding: 10px 14px; border: 1px solid #ddd; border-radius: 10px; font-size: 15px; color: #111; outline: none; margin-bottom: 12px; background: #fff; }
-.modal input:focus, .modal select:focus { border-color: #2563eb; }
+.modal input:focus { border-color: #2563eb; }
 .modal-btns { display: flex; gap: 8px; }
 .modal-btns button { flex: 1; padding: 11px; border-radius: 10px; font-size: 14px; cursor: pointer; font-weight: 500; }
 .btn-cancel { background: #f3f4f6; border: none; color: #666; }
@@ -83,13 +84,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .badge-good { background: #dbeafe; color: #2563eb; }
 .badge-ok { background: #fef9c3; color: #854d0e; }
 .badge-poor { background: #fee2e2; color: #dc2626; }
-.upload-zone { border: 2px dashed #ddd; border-radius: 12px; padding: 32px 16px; text-align: center; cursor: pointer; color: #888; font-size: 14px; transition: border-color 0.2s; }
-.upload-zone:hover { border-color: #2563eb; color: #2563eb; }
-.upload-zone input { display: none; }
-.scanned-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
-.scanned-item:last-child { border-bottom: none; }
-.scanned-check { width: 20px; height: 20px; border-radius: 4px; border: 2px solid #2563eb; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: #2563eb; color: #fff; font-size: 13px; }
-.scanned-check.unchecked { background: #fff; color: transparent; }
+#scanner-container { position: relative; width: 100%; border-radius: 12px; overflow: hidden; background: #000; }
+#scanner-container video { width: 100%; display: block; }
+.scanner-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 200px; height: 200px; border: 3px solid #2563eb; border-radius: 12px; box-shadow: 0 0 0 9999px rgba(0,0,0,0.4); pointer-events: none; }
+.scanner-line { position: absolute; top: 50%; left: 0; right: 0; height: 2px; background: #2563eb; animation: scan 2s linear infinite; }
+@keyframes scan { 0%{top:10%} 50%{top:90%} 100%{top:10%} }
+.scan-btn { width: 100%; padding: 16px; background: #2563eb; border: none; border-radius: 12px; font-size: 16px; cursor: pointer; color: #fff; font-weight: 600; }
+.stop-btn { width: 100%; padding: 12px; background: #dc2626; border: none; border-radius: 10px; font-size: 14px; cursor: pointer; color: #fff; font-weight: 500; }
 </style>
 </head>
 <body>
@@ -101,7 +102,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   <div class="nav">
     <button class="nav-btn active" onclick="show('dashboard')" id="nav-dashboard">📊<span>Home</span></button>
     <button class="nav-btn" onclick="show('search')" id="nav-search">🔍<span>Search</span></button>
-    <button class="nav-btn" onclick="show('scan')" id="nav-scan">📸<span>Scan</span></button>
+    <button class="nav-btn" onclick="show('scan')" id="nav-scan">📷<span>Scan</span></button>
     <button class="nav-btn" onclick="show('list')" id="nav-list">📋<span>List</span></button>
     <button class="nav-btn" onclick="show('health')" id="nav-health">💪<span>Health</span></button>
     <button class="nav-btn" onclick="show('settings')" id="nav-settings">⚙️<span>Settings</span></button>
@@ -146,22 +147,20 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 
   <!-- SCAN -->
   <div class="screen" id="screen-scan">
-    <div class="section-title">Upload a screenshot</div>
+    <div class="section-title">Barcode scanner</div>
     <div class="card">
-      <p style="font-size:14px;color:#555;margin-bottom:16px;line-height:1.6;">Take a screenshot of your Kroger cart, a receipt, or any grocery list and upload it here. The app will automatically read all the items and prices.</p>
-      <div class="upload-zone" onclick="document.getElementById('img-upload').click()">
-        📸 Tap to upload a screenshot
-        <input type="file" id="img-upload" accept="image/*" onchange="handleImageUpload(event)" />
+      <p style="font-size:14px;color:#555;margin-bottom:16px;line-height:1.6;">Point your camera at any product barcode. Works in any store — Kroger, Target, Walmart, anywhere!</p>
+      <div id="scanner-container" style="display:none;">
+        <video id="scanner-video"></video>
+        <div class="scanner-overlay"><div class="scanner-line"></div></div>
       </div>
+      <button class="scan-btn" id="start-scan-btn" onclick="startScanner()">📷 Start scanning</button>
+      <button class="stop-btn" id="stop-scan-btn" onclick="stopScanner()" style="display:none;margin-top:8px;">Stop scanner</button>
     </div>
-    <div id="scan-status" style="display:none;" class="status-bar idle">Processing your image…</div>
-    <div id="scan-results" style="display:none;">
-      <div class="section-title">Items found</div>
-      <div class="card" style="padding:0 14px;">
-        <div id="scanned-items-list"></div>
-      </div>
-      <button class="save-btn" onclick="addScannedItems()" style="margin-top:4px;">Add selected items to my list</button>
-      <button class="save-btn" onclick="resetScan()" style="background:#f3f4f6;color:#666;margin-top:8px;">Scan another image</button>
+    <div id="scan-status" style="display:none;" class="status-bar idle"></div>
+    <div id="scan-result" style="display:none;" class="card">
+      <div class="section-title">Item found</div>
+      <div id="scan-result-content"></div>
     </div>
   </div>
 
@@ -264,20 +263,34 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   </div>
 </div>
 
+<!-- PRICE ENTRY MODAL -->
+<div class="modal-overlay" id="price-modal">
+  <div class="modal">
+    <h2 id="price-modal-title">Enter price</h2>
+    <div id="price-modal-info" style="font-size:13px;color:#888;margin-bottom:12px;line-height:1.6;"></div>
+    <input type="number" id="price-modal-input" placeholder="Price (e.g. 3.99)" min="0" step="0.01" />
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closePriceModal()">Cancel</button>
+      <button class="btn-add" onclick="confirmAddScanned()">Add to list</button>
+    </div>
+  </div>
+</div>
+
 <!-- NUTRITION SEARCH MODAL -->
 <div class="modal-overlay" id="nutr-modal">
   <div class="modal">
     <h2>Find nutrition info</h2>
     <div style="font-size:13px;color:#888;margin-bottom:12px;">Searching for: <strong id="nutr-search-term"></strong></div>
     <div id="nutr-results"><div class="empty">Searching USDA database…</div></div>
-    <button class="btn-cancel" onclick="closeNutrModal()" style="width:100%;padding:11px;border-radius:10px;margin-top:12px;">Cancel</button>
+    <button class="btn-cancel" onclick="closeNutrModal()" style="width:100%;padding:11px;border-radius:10px;margin-top:12px;">Skip</button>
   </div>
 </div>
 
 <script>
 let S = { id:'', secret:'', loc:'', budget:0, token:null, exp:0, list:[], results:[], health:{} };
 let pendingNutrItemId = null;
-let scannedItems = [];
+let codeReader = null;
+let pendingScannedItem = null;
 
 function load() {
   try { const d = localStorage.getItem('vitality_app'); if(d) Object.assign(S, JSON.parse(d)); } catch(e){}
@@ -308,12 +321,140 @@ function show(name) {
   document.getElementById('screen-'+name).classList.add('active');
   document.getElementById('nav-'+name).classList.add('active');
   if(name === 'health') renderHealthScreen();
+  if(name !== 'scan') stopScanner();
 }
 
 function setStatus(type, msg) {
   const el = document.getElementById('api-status');
   el.className = 'status-bar ' + type;
   el.textContent = msg;
+}
+
+async function startScanner() {
+  const container = document.getElementById('scanner-container');
+  const startBtn = document.getElementById('start-scan-btn');
+  const stopBtn = document.getElementById('stop-scan-btn');
+  const scanStatus = document.getElementById('scan-status');
+  const scanResult = document.getElementById('scan-result');
+
+  container.style.display = 'block';
+  startBtn.style.display = 'none';
+  stopBtn.style.display = 'block';
+  scanStatus.style.display = 'block';
+  scanStatus.className = 'status-bar idle';
+  scanStatus.textContent = 'Point camera at a barcode…';
+  scanResult.style.display = 'none';
+
+  try {
+    codeReader = new ZXing.BrowserMultiFormatReader();
+    const videoEl = document.getElementById('scanner-video');
+    await codeReader.decodeFromVideoDevice(null, videoEl, async (result, err) => {
+      if(result) {
+        const barcode = result.getText();
+        scanStatus.className = 'status-bar idle';
+        scanStatus.textContent = 'Barcode found: ' + barcode + ' — looking up product…';
+        stopScanner();
+        await lookupBarcode(barcode);
+      }
+    });
+  } catch(e) {
+    scanStatus.className = 'status-bar err';
+    scanStatus.textContent = 'Camera error: ' + e.message;
+    stopScanner();
+  }
+}
+
+function stopScanner() {
+  if(codeReader) {
+    try { codeReader.reset(); } catch(e){}
+    codeReader = null;
+  }
+  document.getElementById('scanner-container').style.display = 'none';
+  document.getElementById('start-scan-btn').style.display = 'block';
+  document.getElementById('stop-scan-btn').style.display = 'none';
+}
+
+async function lookupBarcode(barcode) {
+  const scanStatus = document.getElementById('scan-status');
+  const scanResult = document.getElementById('scan-result');
+  try {
+    const r = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
+    const d = await r.json();
+    if(d.status === 0 || !d.product) {
+      scanStatus.className = 'status-bar err';
+      scanStatus.textContent = 'Product not found in database — try adding it manually';
+      return;
+    }
+    const p = d.product;
+    const nutriments = p.nutriments || {};
+    const item = {
+      id: 'barcode_' + barcode,
+      name: p.product_name || p.abbreviated_product_name || 'Unknown Product',
+      brand: p.brands || '',
+      size: p.quantity || '',
+      price: null,
+      calories: nutriments['energy-kcal_100g'] ? Math.round(nutriments['energy-kcal_100g']) : null,
+      protein: nutriments['proteins_100g'] ? Math.round(nutriments['proteins_100g'] * 10) / 10 : null,
+      carbs: nutriments['carbohydrates_100g'] ? Math.round(nutriments['carbohydrates_100g'] * 10) / 10 : null,
+      fat: nutriments['fat_100g'] ? Math.round(nutriments['fat_100g'] * 10) / 10 : null,
+      checked: false
+    };
+    pendingScannedItem = item;
+    scanStatus.className = 'status-bar ok';
+    scanStatus.textContent = 'Found: ' + item.name;
+    scanResult.style.display = 'block';
+    document.getElementById('scan-result-content').innerHTML = `
+      <div style="margin-bottom:12px;">
+        <div style="font-size:16px;font-weight:600;color:#111;margin-bottom:4px;">${esc(item.name)}</div>
+        ${item.brand ? `<div style="font-size:13px;color:#888;margin-bottom:8px;">${esc(item.brand)}</div>` : ''}
+        ${item.size ? `<div style="font-size:13px;color:#888;margin-bottom:8px;">${esc(item.size)}</div>` : ''}
+        <div class="nutr-macros" style="margin-bottom:12px;">
+          ${item.calories!=null?`<span class="nutr-macro">${item.calories} cal</span>`:''}
+          ${item.protein!=null?`<span class="nutr-macro">${item.protein}g protein</span>`:''}
+          ${item.carbs!=null?`<span class="nutr-macro">${item.carbs}g carbs</span>`:''}
+          ${item.fat!=null?`<span class="nutr-macro">${item.fat}g fat</span>`:''}
+        </div>
+      </div>
+      <button class="save-btn" onclick="openPriceModal()">Add to my list</button>
+      <button class="save-btn" style="background:#f3f4f6;color:#666;margin-top:8px;" onclick="resetScan()">Scan another item</button>
+    `;
+  } catch(e) {
+    scanStatus.className = 'status-bar err';
+    scanStatus.textContent = 'Lookup failed: ' + e.message;
+  }
+}
+
+function openPriceModal() {
+  if(!pendingScannedItem) return;
+  document.getElementById('price-modal-title').textContent = pendingScannedItem.name;
+  document.getElementById('price-modal-info').textContent = 'Enter the price you see on the shelf:';
+  document.getElementById('price-modal-input').value = '';
+  document.getElementById('price-modal').classList.add('active');
+  document.getElementById('price-modal-input').focus();
+}
+
+function closePriceModal() {
+  document.getElementById('price-modal').classList.remove('active');
+}
+
+function confirmAddScanned() {
+  const price = parseFloat(document.getElementById('price-modal-input').value);
+  if(!pendingScannedItem) return;
+  pendingScannedItem.price = isNaN(price) ? null : price;
+  if(S.list.find(x => x.id === pendingScannedItem.id)) {
+    pendingScannedItem.id = pendingScannedItem.id + '_' + Date.now();
+  }
+  S.list.push(pendingScannedItem);
+  persist(); refresh();
+  closePriceModal();
+  resetScan();
+  show('list');
+}
+
+function resetScan() {
+  pendingScannedItem = null;
+  document.getElementById('scan-status').style.display = 'none';
+  document.getElementById('scan-result').style.display = 'none';
 }
 
 function openManual() { document.getElementById('manual-modal').classList.add('active'); document.getElementById('manual-name').focus(); }
@@ -334,87 +475,6 @@ function addManual() {
   const id = 'manual_' + Date.now();
   S.list.push({ id, name, size, price: isNaN(price)?null:price, calories: isNaN(calories)?null:calories, protein: isNaN(protein)?null:protein, carbs: isNaN(carbs)?null:carbs, fat: isNaN(fat)?null:fat, checked: false, manual: true });
   persist(); refresh(); closeManual();
-}
-
-async function handleImageUpload(event) {
-  const file = event.target.files[0];
-  if(!file) return;
-  const scanStatus = document.getElementById('scan-status');
-  const scanResults = document.getElementById('scan-results');
-  scanStatus.style.display = 'block';
-  scanStatus.className = 'status-bar idle';
-  scanStatus.textContent = 'Reading your screenshot…';
-  scanResults.style.display = 'none';
-  try {
-    const base64 = await fileToBase64(file);
-    const r = await fetch('/scan-image', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ imageBase64: base64 })
-    });
-    const d = await r.json();
-    if(d.error) throw new Error(d.error);
-    if(!d.items || d.items.length === 0) {
-      scanStatus.className = 'status-bar err';
-      scanStatus.textContent = 'No items found. Raw text: ' + (d.rawText || 'nothing').substring(0, 300);
-      return;
-    }
-    scannedItems = d.items.map((item, i) => ({ ...item, selected: true, tempId: 'scan_'+Date.now()+'_'+i }));
-    scanStatus.className = 'status-bar ok';
-    scanStatus.textContent = `Found ${scannedItems.length} item${scannedItems.length>1?'s':''}!`;
-    renderScannedItems();
-    scanResults.style.display = 'block';
-  } catch(e) {
-    scanStatus.className = 'status-bar err';
-    scanStatus.textContent = 'Error reading image: ' + e.message;
-  }
-}
-
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result.split(',')[1]);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
-function renderScannedItems() {
-  document.getElementById('scanned-items-list').innerHTML = scannedItems.map((item, i) => `
-    <div class="scanned-item">
-      <div class="scanned-check ${item.selected?'':'unchecked'}" onclick="toggleScanned(${i})">${item.selected?'✓':''}</div>
-      <div style="flex:1;min-width:0;margin:0 10px;">
-        <div style="font-size:14px;font-weight:500;color:#111;">${esc(item.name)}</div>
-        ${item.price!=null?`<div style="font-size:13px;color:#888;">$${item.price.toFixed(2)}</div>`:'<div style="font-size:13px;color:#aaa;">no price found</div>'}
-      </div>
-    </div>`).join('');
-}
-
-function toggleScanned(index) {
-  scannedItems[index].selected = !scannedItems[index].selected;
-  renderScannedItems();
-}
-
-async function addScannedItems() {
-  const selected = scannedItems.filter(x => x.selected);
-  if(!selected.length) { alert('Please select at least one item'); return; }
-  for(const item of selected) {
-    const id = 'scan_' + Date.now() + '_' + Math.random();
-    S.list.push({ id, name: item.name, size: '', price: item.price, calories: null, protein: null, carbs: null, fat: null, checked: false });
-  }
-  persist(); refresh();
-  alert(`${selected.length} item${selected.length>1?'s':''} added to your list! Go to the List tab to see them.`);
-  for(const item of selected) {
-    const listItem = S.list[S.list.length - selected.length + selected.indexOf(item)];
-    if(listItem) await openNutrSearch(listItem.id, listItem.name);
-  }
-}
-
-function resetScan() {
-  scannedItems = [];
-  document.getElementById('scan-status').style.display = 'none';
-  document.getElementById('scan-results').style.display = 'none';
-  document.getElementById('img-upload').value = '';
 }
 
 function saveSettings() {
@@ -478,7 +538,7 @@ function renderHealthScreen() {
   const listNutr = document.getElementById('list-nutrition');
   const totals = listTotals();
   if(!S.list.length) { listNutr.innerHTML = '<div class="empty">Add items to your list to see nutrition totals</div>'; return; }
-  if(!totals.calories && !totals.protein) { listNutr.innerHTML = '<div class="empty">No nutrition data yet — tap "find nutrition" on list items</div>'; return; }
+  if(!totals.calories && !totals.protein) { listNutr.innerHTML = '<div class="empty">No nutrition data yet — scan items or tap "find nutrition"</div>'; return; }
   let html = '';
   const bars = [
     { label: 'Calories', val: totals.calories, target: targets?targets.calories:null, unit: 'kcal', color: '#2563eb' },
@@ -567,7 +627,7 @@ function addItem(id) {
   if(!p) return;
   if(S.list.find(x=>x.id===id)){alert('Already in your list!');return;}
   if(p.price==null){
-    const priceInput = prompt('No price found. Enter the price from your Kroger app (or leave blank):');
+    const priceInput = prompt('No price found. Enter the price from the shelf (or leave blank):');
     if(priceInput===null) return;
     const parsed = parseFloat(priceInput);
     p.price = isNaN(parsed)?null:parsed;
@@ -611,7 +671,6 @@ function selectNutrition(index) {
 }
 
 function closeNutrModal() { document.getElementById('nutr-modal').classList.remove('active'); pendingNutrItemId=null; }
-
 function toggle(id){const i=S.list.find(x=>x.id===id);if(i){i.checked=!i.checked;persist();renderList();}}
 
 function editPrice(id){
