@@ -81,6 +81,7 @@ app.post('/scan-image', async (req, res) => {
       })
     });
     const d = await r.json();
+    console.log('Vision API response:', JSON.stringify(d).substring(0, 500));
     const text = d.responses && d.responses[0] && d.responses[0].fullTextAnnotation
       ? d.responses[0].fullTextAnnotation.text
       : '';
@@ -151,8 +152,7 @@ app.post('/scan-image', async (req, res) => {
       seen.add(item.name);
       return true;
     });
-
-    res.json({ items: unique, rawText: text });
+res.json({ items: unique, rawText: text || JSON.stringify(d).substring(0, 200) });
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
