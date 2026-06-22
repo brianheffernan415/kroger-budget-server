@@ -5,16 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Kroger Budget">
-<title>Kroger Budget</title>
+<meta name="apple-mobile-web-app-title" content="Vitality">
+<title>Vitality</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; }
 .app { max-width: 430px; margin: 0 auto; background: #fff; min-height: 100vh; display: flex; flex-direction: column; }
 .header { padding: 16px; border-bottom: 1px solid #eee; display: flex; align-items: center; justify-content: space-between; }
 .header h1 { font-size: 18px; font-weight: 600; color: #111; }
-.nav { display: flex; border-bottom: 1px solid #eee; background: #fff; position: sticky; top: 0; z-index: 10; }
-.nav-btn { flex: 1; padding: 10px 4px; font-size: 11px; background: none; border: none; border-bottom: 2px solid transparent; color: #888; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.nav { display: flex; border-bottom: 1px solid #eee; background: #fff; position: sticky; top: 0; z-index: 10; overflow-x: auto; }
+.nav-btn { flex: 1; min-width: 60px; padding: 10px 4px; font-size: 11px; background: none; border: none; border-bottom: 2px solid transparent; color: #888; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; white-space: nowrap; }
 .nav-btn.active { color: #2563eb; border-bottom-color: #2563eb; }
 .screen { display: none; flex: 1; flex-direction: column; padding: 16px; gap: 12px; }
 .screen.active { display: flex; }
@@ -55,33 +55,52 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .total-row { display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid #eee; margin-top: 4px; }
 .budget-bar-wrap { background: #f0f0f0; border-radius: 99px; height: 10px; overflow: hidden; }
 .budget-bar { height: 10px; border-radius: 99px; transition: width 0.3s; }
-.section-title { font-size: 13px; font-weight: 600; color: #888; letter-spacing: 0.05em; text-transform: uppercase; }
+.section-title { font-size: 13px; font-weight: 600; color: #888; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 10px; }
 .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; }
 .modal-overlay.active { display: flex; }
-.modal { background: #fff; border-radius: 16px; padding: 20px; width: 320px; max-width: 90vw; }
+.modal { background: #fff; border-radius: 16px; padding: 20px; width: 320px; max-width: 90vw; max-height: 80vh; overflow-y: auto; }
 .modal h2 { font-size: 16px; font-weight: 600; color: #111; margin-bottom: 16px; }
-.modal input { width: 100%; padding: 10px 14px; border: 1px solid #ddd; border-radius: 10px; font-size: 15px; color: #111; outline: none; margin-bottom: 12px; }
-.modal input:focus { border-color: #2563eb; }
+.modal input, .modal select { width: 100%; padding: 10px 14px; border: 1px solid #ddd; border-radius: 10px; font-size: 15px; color: #111; outline: none; margin-bottom: 12px; background: #fff; }
+.modal input:focus, .modal select:focus { border-color: #2563eb; }
 .modal-btns { display: flex; gap: 8px; }
 .modal-btns button { flex: 1; padding: 11px; border-radius: 10px; font-size: 14px; cursor: pointer; font-weight: 500; }
 .btn-cancel { background: #f3f4f6; border: none; color: #666; }
 .btn-add { background: #2563eb; border: none; color: #fff; }
 .manual-add-btn { width: 100%; padding: 12px; background: none; border: 2px dashed #ddd; border-radius: 10px; font-size: 14px; cursor: pointer; color: #888; }
+.nutr-item { padding: 10px 0; border-bottom: 1px solid #f0f0f0; cursor: pointer; }
+.nutr-item:last-child { border-bottom: none; }
+.nutr-item:hover { background: #f8f8f8; }
+.nutr-name { font-size: 14px; font-weight: 500; color: #111; }
+.nutr-brand { font-size: 12px; color: #888; }
+.nutr-macros { display: flex; gap: 10px; margin-top: 4px; }
+.nutr-macro { font-size: 12px; color: #555; background: #f3f4f6; padding: 2px 8px; border-radius: 99px; }
+.progress-bar-wrap { background: #f0f0f0; border-radius: 99px; height: 8px; overflow: hidden; margin-top: 6px; }
+.progress-bar { height: 8px; border-radius: 99px; transition: width 0.3s; }
+.goal-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.goal-label { font-size: 13px; color: #555; }
+.goal-value { font-size: 13px; font-weight: 600; color: #111; }
+.value-badge { font-size: 11px; padding: 2px 8px; border-radius: 99px; font-weight: 600; }
+.badge-great { background: #dcfce7; color: #16a34a; }
+.badge-good { background: #dbeafe; color: #2563eb; }
+.badge-ok { background: #fef9c3; color: #854d0e; }
+.badge-poor { background: #fee2e2; color: #dc2626; }
 </style>
 </head>
 <body>
 <div class="app">
   <div class="header">
-    <h1>🛒 Kroger Budget</h1>
+    <h1>✨ Vitality</h1>
     <span id="store-label" style="font-size:12px;color:#aaa;">not connected</span>
   </div>
   <div class="nav">
-    <button class="nav-btn active" onclick="show('dashboard')" id="nav-dashboard">📊<span>Dashboard</span></button>
+    <button class="nav-btn active" onclick="show('dashboard')" id="nav-dashboard">📊<span>Home</span></button>
     <button class="nav-btn" onclick="show('search')" id="nav-search">🔍<span>Search</span></button>
-    <button class="nav-btn" onclick="show('list')" id="nav-list">📋<span>My List</span></button>
+    <button class="nav-btn" onclick="show('list')" id="nav-list">📋<span>List</span></button>
+    <button class="nav-btn" onclick="show('health')" id="nav-health">💪<span>Health</span></button>
     <button class="nav-btn" onclick="show('settings')" id="nav-settings">⚙️<span>Settings</span></button>
   </div>
 
+  <!-- DASHBOARD -->
   <div class="screen active" id="screen-dashboard">
     <div class="metric-row">
       <div class="metric"><div class="metric-label">Weekly Budget</div><div class="metric-value" id="d-budget">$—</div></div>
@@ -98,12 +117,17 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       <div class="metric"><div class="metric-label">Items</div><div class="metric-value" id="d-items">0</div></div>
       <div class="metric"><div class="metric-label">Remaining</div><div class="metric-value" id="d-rem">$—</div></div>
     </div>
+    <div class="card" id="health-summary-card" style="display:none;">
+      <div class="section-title">Nutrition summary</div>
+      <div id="health-summary"></div>
+    </div>
     <div class="card">
-      <div class="section-title" style="margin-bottom:10px;">Recent Additions</div>
+      <div class="section-title">Recent additions</div>
       <div id="d-recent"><div class="empty">Your list is empty — search for items to add</div></div>
     </div>
   </div>
 
+  <!-- SEARCH -->
   <div class="screen" id="screen-search">
     <div class="search-row">
       <input type="text" id="search-input" placeholder="Search Kroger products…" onkeydown="if(event.key==='Enter')doSearch()" />
@@ -113,6 +137,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <div id="search-results"><div class="empty">Search for a product above, or add one manually</div></div>
   </div>
 
+  <!-- LIST -->
   <div class="screen" id="screen-list">
     <div class="card">
       <div id="list-items"><div class="empty">No items yet — use search to add products</div></div>
@@ -125,8 +150,52 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <button class="save-btn" onclick="clearChecked()" style="background:#dc2626;margin-top:8px;">Clear checked items</button>
   </div>
 
+  <!-- HEALTH -->
+  <div class="screen" id="screen-health">
+    <div class="section-title">Your profile</div>
+    <div class="card" style="display:flex;flex-direction:column;">
+      <label class="settings-label">Age</label>
+      <input class="settings-input" type="number" id="h-age" placeholder="e.g. 35" min="1" max="120" />
+      <label class="settings-label">Gender</label>
+      <select class="settings-input" id="h-gender">
+        <option value="">Select…</option>
+        <option value="male">Male</option>
+        <option value="female">Female</option>
+      </select>
+      <label class="settings-label">Height (inches)</label>
+      <input class="settings-input" type="number" id="h-height" placeholder="e.g. 70 (5'10&quot;)" />
+      <label class="settings-label">Weight (lbs)</label>
+      <input class="settings-input" type="number" id="h-weight" placeholder="e.g. 175" />
+      <label class="settings-label">Goal</label>
+      <select class="settings-input" id="h-goal">
+        <option value="">Select…</option>
+        <option value="lose">Lose weight</option>
+        <option value="maintain">Maintain weight</option>
+        <option value="gain">Build muscle</option>
+      </select>
+      <label class="settings-label">Activity level</label>
+      <select class="settings-input" id="h-activity" style="margin-bottom:0;">
+        <option value="">Select…</option>
+        <option value="1.2">Sedentary (little or no exercise)</option>
+        <option value="1.375">Lightly active (1-3 days/week)</option>
+        <option value="1.55">Moderately active (3-5 days/week)</option>
+        <option value="1.725">Very active (6-7 days/week)</option>
+      </select>
+      <button class="save-btn" onclick="saveHealth()" style="margin-top:12px;">Calculate my targets</button>
+    </div>
+    <div class="card" id="targets-card" style="display:none;">
+      <div class="section-title">Your daily targets</div>
+      <div id="targets-display"></div>
+    </div>
+    <div class="card">
+      <div class="section-title">Nutrition in your list</div>
+      <div id="list-nutrition"><div class="empty">Add items to your list to see nutrition totals</div></div>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
   <div class="screen" id="screen-settings">
-    <div class="section-title">Kroger API Credentials</div>
+    <div class="section-title">Kroger API credentials</div>
     <div class="card" style="display:flex;flex-direction:column;">
       <label class="settings-label">Client ID</label>
       <input class="settings-input" type="text" id="cfg-id" placeholder="Paste your client ID here" />
@@ -137,21 +206,29 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       <button class="save-btn" onclick="saveSettings()" style="margin-top:12px;">Save & Connect</button>
       <div class="status-bar idle" id="api-status">Not connected — enter credentials above</div>
     </div>
-    <div class="section-title">Weekly Budget</div>
+    <div class="section-title">Weekly budget</div>
     <div class="card" style="display:flex;flex-direction:column;">
       <label class="settings-label">Budget amount ($)</label>
       <input class="settings-input" type="number" id="cfg-budget" placeholder="e.g. 150" min="0" style="margin-bottom:0;" />
-      <button class="save-btn" onclick="saveBudget()" style="margin-top:12px;">Save Budget</button>
+      <button class="save-btn" onclick="saveBudget()" style="margin-top:12px;">Save budget</button>
     </div>
   </div>
 </div>
 
+<!-- MANUAL ADD MODAL -->
 <div class="modal-overlay" id="manual-modal">
   <div class="modal">
     <h2>Add item manually</h2>
     <input type="text" id="manual-name" placeholder="Item name (e.g. Whole Milk)" />
     <input type="number" id="manual-price" placeholder="Price (e.g. 3.99)" min="0" step="0.01" />
     <input type="text" id="manual-size" placeholder="Size (e.g. 1 gallon) — optional" />
+    <div style="margin-bottom:12px;">
+      <div style="font-size:13px;color:#666;margin-bottom:8px;">Nutrition per serving (optional)</div>
+      <input type="number" id="manual-calories" placeholder="Calories" style="margin-bottom:8px;" />
+      <input type="number" id="manual-protein" placeholder="Protein (g)" style="margin-bottom:8px;" />
+      <input type="number" id="manual-carbs" placeholder="Carbs (g)" style="margin-bottom:8px;" />
+      <input type="number" id="manual-fat" placeholder="Fat (g)" style="margin-bottom:0;" />
+    </div>
     <div class="modal-btns">
       <button class="btn-cancel" onclick="closeManual()">Cancel</button>
       <button class="btn-add" onclick="addManual()">Add to list</button>
@@ -159,18 +236,34 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   </div>
 </div>
 
+<!-- NUTRITION SEARCH MODAL -->
+<div class="modal-overlay" id="nutr-modal">
+  <div class="modal">
+    <h2>Find nutrition info</h2>
+    <div style="font-size:13px;color:#888;margin-bottom:12px;">Searching for: <strong id="nutr-search-term"></strong></div>
+    <div id="nutr-results"><div class="empty">Searching USDA database…</div></div>
+    <button class="btn-cancel" onclick="closeNutrModal()" style="width:100%;padding:11px;border-radius:10px;margin-top:12px;">Cancel</button>
+  </div>
+</div>
+
 <script>
-let S = { id:'', secret:'', loc:'', budget:0, token:null, exp:0, list:[], results:[] };
+let S = { id:'', secret:'', loc:'', budget:0, token:null, exp:0, list:[], results:[], health:{} };
+let pendingNutrItemId = null;
 
 function load() {
-  try {
-    const d = localStorage.getItem('kgb_app');
-    if(d) Object.assign(S, JSON.parse(d));
-  } catch(e){}
+  try { const d = localStorage.getItem('vitality_app'); if(d) Object.assign(S, JSON.parse(d)); } catch(e){}
   if(S.id) document.getElementById('cfg-id').value = S.id;
   if(S.secret) document.getElementById('cfg-secret').value = S.secret;
   if(S.loc) document.getElementById('cfg-loc').value = S.loc;
   if(S.budget) document.getElementById('cfg-budget').value = S.budget;
+  if(S.health) {
+    if(S.health.age) document.getElementById('h-age').value = S.health.age;
+    if(S.health.gender) document.getElementById('h-gender').value = S.health.gender;
+    if(S.health.height) document.getElementById('h-height').value = S.health.height;
+    if(S.health.weight) document.getElementById('h-weight').value = S.health.weight;
+    if(S.health.goal) document.getElementById('h-goal').value = S.health.goal;
+    if(S.health.activity) document.getElementById('h-activity').value = S.health.activity;
+  }
   if(S.id && S.secret) {
     setStatus('ok','Credentials loaded — tap Save & Connect to test');
     document.getElementById('store-label').textContent = S.loc ? 'Store #'+S.loc : 'Connected';
@@ -178,15 +271,14 @@ function load() {
   refresh();
 }
 
-function persist() {
-  try { localStorage.setItem('kgb_app', JSON.stringify(S)); } catch(e){}
-}
+function persist() { try { localStorage.setItem('vitality_app', JSON.stringify(S)); } catch(e){} }
 
 function show(name) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('screen-'+name).classList.add('active');
   document.getElementById('nav-'+name).classList.add('active');
+  if(name === 'health') renderHealthScreen();
 }
 
 function setStatus(type, msg) {
@@ -195,25 +287,31 @@ function setStatus(type, msg) {
   el.textContent = msg;
 }
 
-function openManual() {
-  document.getElementById('manual-modal').classList.add('active');
-  document.getElementById('manual-name').focus();
-}
-
+function openManual() { document.getElementById('manual-modal').classList.add('active'); document.getElementById('manual-name').focus(); }
 function closeManual() {
   document.getElementById('manual-modal').classList.remove('active');
-  document.getElementById('manual-name').value = '';
-  document.getElementById('manual-price').value = '';
-  document.getElementById('manual-size').value = '';
+  ['manual-name','manual-price','manual-size','manual-calories','manual-protein','manual-carbs','manual-fat'].forEach(id => document.getElementById(id).value = '');
 }
 
 function addManual() {
   const name = document.getElementById('manual-name').value.trim();
   const price = parseFloat(document.getElementById('manual-price').value);
   const size = document.getElementById('manual-size').value.trim();
+  const calories = parseFloat(document.getElementById('manual-calories').value);
+  const protein = parseFloat(document.getElementById('manual-protein').value);
+  const carbs = parseFloat(document.getElementById('manual-carbs').value);
+  const fat = parseFloat(document.getElementById('manual-fat').value);
   if(!name) { alert('Please enter an item name'); return; }
   const id = 'manual_' + Date.now();
-  S.list.push({ id, name, size, price: isNaN(price) ? null : price, checked: false, manual: true });
+  S.list.push({
+    id, name, size,
+    price: isNaN(price) ? null : price,
+    calories: isNaN(calories) ? null : calories,
+    protein: isNaN(protein) ? null : protein,
+    carbs: isNaN(carbs) ? null : carbs,
+    fat: isNaN(fat) ? null : fat,
+    checked: false, manual: true
+  });
   persist(); refresh(); closeManual();
 }
 
@@ -231,19 +329,104 @@ function saveSettings() {
   }).catch(e => setStatus('err','Connection failed: '+e.message));
 }
 
-function saveBudget() {
-  S.budget = parseFloat(document.getElementById('cfg-budget').value) || 0;
-  persist(); refresh();
+function saveBudget() { S.budget = parseFloat(document.getElementById('cfg-budget').value) || 0; persist(); refresh(); }
+
+function saveHealth() {
+  S.health = {
+    age: parseInt(document.getElementById('h-age').value) || null,
+    gender: document.getElementById('h-gender').value,
+    height: parseFloat(document.getElementById('h-height').value) || null,
+    weight: parseFloat(document.getElementById('h-weight').value) || null,
+    goal: document.getElementById('h-goal').value,
+    activity: parseFloat(document.getElementById('h-activity').value) || null
+  };
+  persist();
+  renderHealthScreen();
+}
+
+function calcTargets() {
+  const h = S.health;
+  if(!h.age || !h.gender || !h.height || !h.weight || !h.goal || !h.activity) return null;
+  const weightKg = h.weight * 0.453592;
+  const heightCm = h.height * 2.54;
+  let bmr;
+  if(h.gender === 'male') bmr = 10 * weightKg + 6.25 * heightCm - 5 * h.age + 5;
+  else bmr = 10 * weightKg + 6.25 * heightCm - 5 * h.age - 161;
+  let calories = Math.round(bmr * h.activity);
+  if(h.goal === 'lose') calories -= 500;
+  if(h.goal === 'gain') calories += 300;
+  const protein = Math.round(h.weight * (h.goal === 'gain' ? 0.8 : 0.6));
+  const carbs = Math.round((calories * 0.45) / 4);
+  const fat = Math.round((calories * 0.30) / 9);
+  return { calories, protein, carbs, fat };
+}
+
+function renderHealthScreen() {
+  const targets = calcTargets();
+  const card = document.getElementById('targets-card');
+  const display = document.getElementById('targets-display');
+  if(targets) {
+    card.style.display = 'block';
+    display.innerHTML = `
+      <div class="goal-row"><span class="goal-label">Daily calories</span><span class="goal-value">${targets.calories} kcal</span></div>
+      <div class="goal-row"><span class="goal-label">Protein</span><span class="goal-value">${targets.protein}g</span></div>
+      <div class="goal-row"><span class="goal-label">Carbs</span><span class="goal-value">${targets.carbs}g</span></div>
+      <div class="goal-row"><span class="goal-label">Fat</span><span class="goal-value">${targets.fat}g</span></div>
+    `;
+  } else {
+    card.style.display = 'none';
+  }
+  const listNutr = document.getElementById('list-nutrition');
+  const totals = listTotals();
+  if(!S.list.length) { listNutr.innerHTML = '<div class="empty">Add items to your list to see nutrition totals</div>'; return; }
+  if(!totals.calories && !totals.protein) { listNutr.innerHTML = '<div class="empty">No nutrition data yet — tap "find nutrition" on list items</div>'; return; }
+  let html = '';
+  const bars = [
+    { label: 'Calories', val: totals.calories, target: targets ? targets.calories : null, unit: 'kcal', color: '#2563eb' },
+    { label: 'Protein', val: totals.protein, target: targets ? targets.protein : null, unit: 'g', color: '#16a34a' },
+    { label: 'Carbs', val: totals.carbs, target: targets ? targets.carbs : null, unit: 'g', color: '#f59e0b' },
+    { label: 'Fat', val: totals.fat, target: targets ? targets.fat : null, unit: 'g', color: '#8b5cf6' }
+  ];
+  bars.forEach(b => {
+    if(b.val == null) return;
+    const pct = b.target ? Math.min(100, Math.round(b.val / b.target * 100)) : null;
+    html += `<div style="margin-bottom:12px;">
+      <div class="goal-row">
+        <span class="goal-label">${b.label}</span>
+        <span class="goal-value">${Math.round(b.val)}${b.unit}${b.target ? ' / '+b.target+b.unit : ''}</span>
+      </div>
+      ${pct !== null ? `<div class="progress-bar-wrap"><div class="progress-bar" style="width:${pct}%;background:${b.color};"></div></div>` : ''}
+    </div>`;
+  });
+  listNutr.innerHTML = html;
+}
+
+function listTotals() {
+  let calories = null, protein = null, carbs = null, fat = null;
+  S.list.forEach(item => {
+    if(item.calories != null) { calories = (calories||0) + item.calories; }
+    if(item.protein != null) { protein = (protein||0) + item.protein; }
+    if(item.carbs != null) { carbs = (carbs||0) + item.carbs; }
+    if(item.fat != null) { fat = (fat||0) + item.fat; }
+  });
+  return { calories, protein, carbs, fat };
+}
+
+function valueBadge(item) {
+  if(item.price == null || item.protein == null || item.protein === 0) return '';
+  const cpp = item.price / item.protein;
+  let cls, label;
+  if(cpp < 0.10) { cls = 'badge-great'; label = '💚 Great value'; }
+  else if(cpp < 0.20) { cls = 'badge-good'; label = '👍 Good value'; }
+  else if(cpp < 0.40) { cls = 'badge-ok'; label = '😐 OK value'; }
+  else { cls = 'badge-poor'; label = '⚠️ Poor value'; }
+  return `<span class="value-badge ${cls}">${label}</span>`;
 }
 
 async function getToken() {
   if(S.token && Date.now() < S.exp) return S.token;
-  const r = await fetch('/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ clientId: S.id, clientSecret: S.secret })
-  });
-  if(!r.ok) throw new Error('auth failed — check your credentials');
+  const r = await fetch('/token', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ clientId: S.id, clientSecret: S.secret }) });
+  if(!r.ok) throw new Error('auth failed');
   const d = await r.json();
   if(d.error) throw new Error(d.error);
   S.token = d.access_token;
@@ -255,26 +438,14 @@ async function getToken() {
 async function doSearch() {
   const q = document.getElementById('search-input').value.trim();
   if(!q) return;
-  if(!S.id || !S.secret) {
-    document.getElementById('search-results').innerHTML = '<div class="status-bar err" style="margin-top:8px;">Go to Settings and add your Kroger API credentials first</div>';
-    return;
-  }
+  if(!S.id || !S.secret) { document.getElementById('search-results').innerHTML = '<div class="status-bar err" style="margin-top:8px;">Go to Settings and add your Kroger API credentials first</div>'; return; }
   document.getElementById('search-results').innerHTML = '<div class="empty">Searching…</div>';
   try {
     const tok = await getToken();
-    const r = await fetch('/search', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: tok, query: q, locationId: S.loc })
-    });
+    const r = await fetch('/search', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ token: tok, query: q, locationId: S.loc }) });
     if(!r.ok) throw new Error('search failed');
     const d = await r.json();
-    S.results = (d.data||[]).map(p => ({
-      id: p.productId,
-      name: p.description,
-      size: (p.items&&p.items[0]&&p.items[0].size)||'',
-      price: (p.items&&p.items[0]&&p.items[0].price&&p.items[0].price.regular)||null
-    }));
+    S.results = (d.data||[]).map(p => ({ id: p.productId, name: p.description, size: (p.items&&p.items[0]&&p.items[0].size)||'', price: (p.items&&p.items[0]&&p.items[0].price&&p.items[0].price.regular)||null }));
     renderSearch();
   } catch(e) {
     document.getElementById('search-results').innerHTML = '<div class="status-bar err" style="margin-top:8px;">Search failed: '+e.message+'</div>';
@@ -290,7 +461,7 @@ function renderSearch() {
         <div class="product-name">${esc(p.name)}</div>
         <div class="product-size">${esc(p.size)}</div>
       </div>
-      <div class="product-price">${p.price!=null ? '$'+p.price.toFixed(2) : '<span style="font-size:12px;color:#aaa;">no price</span>'}</div>
+      <div class="product-price">${p.price!=null?'$'+p.price.toFixed(2):'<span style="font-size:12px;color:#aaa;">no price</span>'}</div>
       <button class="add-btn" onclick='addItem(${JSON.stringify(p.id)})'>+</button>
     </div>`).join('') + '</div>';
 }
@@ -307,22 +478,65 @@ function addItem(id) {
   }
   S.list.push({...p, checked: false});
   persist(); refresh();
+  openNutrSearch(id, p.name);
 }
 
-function toggle(id) {
-  const i = S.list.find(x => x.id === id);
-  if(i) { i.checked = !i.checked; persist(); renderList(); }
+async function openNutrSearch(itemId, name) {
+  pendingNutrItemId = itemId;
+  document.getElementById('nutr-search-term').textContent = name;
+  document.getElementById('nutr-results').innerHTML = '<div class="empty">Searching USDA database…</div>';
+  document.getElementById('nutr-modal').classList.add('active');
+  try {
+    const r = await fetch('/nutrition', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ query: name }) });
+    const results = await r.json();
+    if(!results.length) { document.getElementById('nutr-results').innerHTML = '<div class="empty">No nutrition data found — you can add it manually in your list</div>'; return; }
+    document.getElementById('nutr-results').innerHTML = results.map((f,i) => `
+      <div class="nutr-item" onclick="selectNutrition(${i})">
+        <div class="nutr-name">${esc(f.name)}</div>
+        ${f.brand ? `<div class="nutr-brand">${esc(f.brand)}</div>` : ''}
+        <div class="nutr-macros">
+          ${f.calories != null ? `<span class="nutr-macro">${f.calories} cal</span>` : ''}
+          ${f.protein != null ? `<span class="nutr-macro">${f.protein}g protein</span>` : ''}
+          ${f.carbs != null ? `<span class="nutr-macro">${f.carbs}g carbs</span>` : ''}
+          ${f.fat != null ? `<span class="nutr-macro">${f.fat}g fat</span>` : ''}
+        </div>
+      </div>`).join('');
+    window._nutrResults = results;
+  } catch(e) {
+    document.getElementById('nutr-results').innerHTML = '<div class="empty">Could not load nutrition data</div>';
+  }
 }
+
+function selectNutrition(index) {
+  const f = window._nutrResults[index];
+  const item = S.list.find(x => x.id === pendingNutrItemId);
+  if(item && f) {
+    item.calories = f.calories;
+    item.protein = f.protein;
+    item.carbs = f.carbs;
+    item.fat = f.fat;
+    persist(); refresh();
+  }
+  closeNutrModal();
+}
+
+function closeNutrModal() {
+  document.getElementById('nutr-modal').classList.remove('active');
+  pendingNutrItemId = null;
+}
+
+function toggle(id) { const i = S.list.find(x => x.id === id); if(i){ i.checked=!i.checked; persist(); renderList(); } }
 
 function editPrice(id) {
   const item = S.list.find(x => x.id === id);
   if(!item) return;
   const val = prompt('Enter price for ' + item.name + ':', item.price != null ? item.price.toFixed(2) : '');
-  if(val !== null) {
-    const parsed = parseFloat(val);
-    item.price = isNaN(parsed) ? null : parsed;
-    persist(); refresh();
-  }
+  if(val !== null) { const parsed = parseFloat(val); item.price = isNaN(parsed) ? null : parsed; persist(); refresh(); }
+}
+
+function findNutrition(id) {
+  const item = S.list.find(x => x.id === id);
+  if(item) openNutrSearch(id, item.name);
 }
 
 function remove(id) { S.list = S.list.filter(x => x.id !== id); persist(); refresh(); }
@@ -331,15 +545,17 @@ function clearChecked() { S.list = S.list.filter(x => !x.checked); persist(); re
 function renderList() {
   const el = document.getElementById('list-items');
   const tr = document.getElementById('list-total-row');
-  if(!S.list.length) { el.innerHTML = '<div class="empty">No items yet — use search or add manually</div>'; tr.style.display = 'none'; return; }
+  if(!S.list.length) { el.innerHTML = '<div class="empty">No items yet — use search or add manually</div>'; tr.style.display='none'; return; }
   el.innerHTML = S.list.map(p => `<div class="list-item">
-    <div class="check-circle ${p.checked?'checked':''}" onclick="toggle('${p.id}')">
-      ${p.checked ? '✓' : ''}
-    </div>
+    <div class="check-circle ${p.checked?'checked':''}" onclick="toggle('${p.id}')">${p.checked?'✓':''}</div>
     <div style="flex:1;min-width:0;">
       <div class="li-name ${p.checked?'checked':''}">${esc(p.name)}</div>
-      <div class="li-price" onclick="editPrice('${p.id}')" style="cursor:pointer;">
-        ${p.price!=null ? '$'+p.price.toFixed(2) : '<span style="color:#2563eb;">tap to add price</span>'}
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:2px;">
+        <span class="li-price" onclick="editPrice('${p.id}')" style="cursor:pointer;">${p.price!=null?'$'+p.price.toFixed(2):'<span style="color:#2563eb;">add price</span>'}</span>
+        ${p.calories!=null?`<span class="nutr-macro">${p.calories}cal</span>`:''}
+        ${p.protein!=null?`<span class="nutr-macro">${p.protein}g protein</span>`:''}
+        ${valueBadge(p)}
+        ${p.calories==null?`<span style="font-size:12px;color:#2563eb;cursor:pointer;" onclick="findNutrition('${p.id}')">find nutrition</span>`:''}
       </div>
     </div>
     <button class="rm-btn" onclick="remove('${p.id}')">🗑</button>
@@ -351,23 +567,32 @@ function renderList() {
 
 function refresh() {
   renderList();
+  const totals = listTotals();
+  const targets = calcTargets();
+  const healthCard = document.getElementById('health-summary-card');
+  if(totals.calories || totals.protein) {
+    healthCard.style.display = 'block';
+    let html = '';
+    if(totals.calories) html += `<div class="goal-row"><span class="goal-label">Total calories in list</span><span class="goal-value">${Math.round(totals.calories)} kcal${targets?' / '+targets.calories:''}</span></div>`;
+    if(totals.protein) html += `<div class="goal-row"><span class="goal-label">Total protein</span><span class="goal-value">${Math.round(totals.protein)}g${targets?' / '+targets.protein+'g':''}</span></div>`;
+    document.getElementById('health-summary').innerHTML = html;
+  } else { healthCard.style.display = 'none'; }
   const total = S.list.reduce((s,x) => s+(x.price||0), 0);
   const b = S.budget;
   const pct = b>0 ? Math.min(100, Math.round(total/b*100)) : 0;
   const rem = b - total;
   document.getElementById('d-total').textContent = '$'+total.toFixed(2);
-  document.getElementById('d-budget').textContent = b>0 ? '$'+b.toFixed(2) : '$—';
+  document.getElementById('d-budget').textContent = b>0?'$'+b.toFixed(2):'$—';
   document.getElementById('d-items').textContent = S.list.length;
-  document.getElementById('d-pct').textContent = b>0 ? pct+'%' : '—';
-  document.getElementById('d-rem').textContent = b>0 ? (rem>=0 ? '$'+rem.toFixed(2) : '-$'+Math.abs(rem).toFixed(2)) : '$—';
+  document.getElementById('d-pct').textContent = b>0?pct+'%':'—';
+  document.getElementById('d-rem').textContent = b>0?(rem>=0?'$'+rem.toFixed(2):'-$'+Math.abs(rem).toFixed(2)):'$—';
   const bar = document.getElementById('d-bar');
   bar.style.width = pct+'%';
-  bar.style.background = pct>90 ? '#dc2626' : pct>70 ? '#f59e0b' : '#2563eb';
-  const remEl = document.getElementById('d-rem');
-  remEl.className = 'metric-value'+(b>0&&rem<0?' danger':b>0?' success':'');
+  bar.style.background = pct>90?'#dc2626':pct>70?'#f59e0b':'#2563eb';
+  document.getElementById('d-rem').className = 'metric-value'+(b>0&&rem<0?' danger':b>0?' success':'');
   const recent = S.list.slice(-3).reverse();
   document.getElementById('d-recent').innerHTML = recent.length ?
-    recent.map(p => `<div class="product-item"><div style="flex:1;min-width:0;"><div class="product-name">${esc(p.name)}</div></div><div class="product-price">${p.price!=null?'$'+p.price.toFixed(2):'—'}</div></div>`).join('') :
+    recent.map(p=>`<div class="product-item"><div style="flex:1;min-width:0;"><div class="product-name">${esc(p.name)}</div>${p.calories!=null?`<div class="product-size">${p.calories}cal${p.protein!=null?' · '+p.protein+'g protein':''}</div>`:''}</div><div class="product-price">${p.price!=null?'$'+p.price.toFixed(2):'—'}</div></div>`).join('') :
     '<div class="empty">Your list is empty — search for items to add</div>';
 }
 
