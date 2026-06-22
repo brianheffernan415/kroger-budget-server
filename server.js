@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
 const path = require('path');
+const FormData = require('form-data');
 
 const app = express();
 app.use(cors());
@@ -69,28 +70,34 @@ app.post('/nutrition', async (req, res) => {
 app.post('/scan-image', async (req, res) => {
   try {
     const { imageBase64 } = req.body;
-    const key = process.env.GOOGLE_VISION_KEY;
-    const r = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${key}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        requests: [{
-          image: { content: imageBase64 },
-          features: [{ type: 'TEXT_DETECTION', maxResults: 1 }]
-        }]
-      })
-    });
-    const d = await r.json();
-    console.log('Vision API response:', JSON.stringify(d).substring(0, 500));
-    const text = d.responses && d.responses[0] && d.responses[0].fullTextAnnotation
-      ? d.responses[0].fullTextAnnotation.text
-      : '';
+    const key = process.env.OCR_API_KEY;
 
+    const formData = new FormData();
+    formData.append('base64Image', 'data:image/png;base64,' + imageBase64);
+    formData.append('apikey', key);
+    formData.append('language', 'eng');
+    formData.append('isOverlayRequired', 'false');
+    formData.append('scale', 'true');
+    formData.append('isTable', 'false');
+
+    const r = await fetch('https://api.ocr.space/parse/image', {
+      method: 'POST',
+      body: formData
+    });
+
+    const d = await r.json();
+    console.log('OCR response:', JSON.stringify(d).substring(0, 500));
+
+    if(!d.ParsedResults || !d.ParsedResults[0]) {
+      return res.json({ items: [], rawText: 'No text detected' });
+    }
+
+    const text = d.ParsedResults[0].ParsedText || '';
     const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
 
     const skipWords = ['save for later', 'in cart', 'snap ebt', 'backup', 'best available',
       'choose backup', 'continue to checkout', 'view offer', 'coupon', 'new look',
-      'view items', 'estimated total', 'cart', 'shop', 'save', 'health', 'checkout'];
+      'view items', 'estimated total', 'cart', 'shop', 'health', 'checkout', 'view items'];
 
     const isSkip = line => {
       const lower = line.toLowerCase();
@@ -108,23 +115,17 @@ app.post('/scan-image', async (req, res) => {
       return true;
     };
 
-    // Reconstruct lines — Kroger big price font splits "$1" and "25" onto separate tokens
-    // Join adjacent short numeric lines that look like split prices
     const joined = [];
     for(let i = 0; i < lines.length; i++) {
       const cur = lines[i];
       const next = lines[i+1] || '';
-      // Pattern: "$1" followed by "25" => "$1.25"
       if(cur.match(/^\$\d+$/) && next.match(/^\d{2}$/)) {
         joined.push(cur + '.' + next);
-        i++; // skip next
-      }
-      // Pattern: "$3.19" with strikethrough duplicate like "$3.69" right after
-      else if(cur.match(/^\$\d+\.\d{2}$/) && next.match(/^\$\d+\.\d{2}$/)) {
-        joined.push(cur); // take the first (sale) price, skip the crossed-out one
         i++;
-      }
-      else {
+      } else if(cur.match(/^\$\d+\.\d{2}$/) && next.match(/^\$\d+\.\d{2}$/)) {
+        joined.push(cur);
+        i++;
+      } else {
         joined.push(cur);
       }
     }
@@ -132,10 +133,9 @@ app.post('/scan-image', async (req, res) => {
     const items = [];
     for(let i = 0; i < joined.length; i++) {
       const line = joined[i];
-      const priceMatch = line.match(/^\$(\d+\.\d{2})$/);
+      const priceMatch = line.match(/^\$(\d+\.\d{2})$/) || line.match(/\$(\d+\.\d{2})/);
       if(priceMatch) {
         const price = parseFloat(priceMatch[1]);
-        // Look forward for the product name
         for(let j = i+1; j < Math.min(i+5, joined.length); j++) {
           if(isProductName(joined[j])) {
             items.push({ name: joined[j].replace('®','').replace('™','').trim(), price });
@@ -145,15 +145,16 @@ app.post('/scan-image', async (req, res) => {
       }
     }
 
-    // Remove duplicates
     const seen = new Set();
     const unique = items.filter(item => {
       if(seen.has(item.name)) return false;
       seen.add(item.name);
       return true;
     });
-res.json({ items: unique, rawText: text || JSON.stringify(d).substring(0, 200) });
+
+    res.json({ items: unique, rawText: text });
   } catch(e) {
+    console.error('Scan error:', e);
     res.status(500).json({ error: e.message });
   }
 });
