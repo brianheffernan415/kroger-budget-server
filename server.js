@@ -84,23 +84,44 @@ app.post('/scan-image', async (req, res) => {
     const text = d.responses && d.responses[0] && d.responses[0].fullTextAnnotation
       ? d.responses[0].fullTextAnnotation.text
       : '';
+
     const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
     const items = [];
-    const priceRegex = /\$?(\d+\.\d{2})/;
+    const skipWords = ['save for later', 'in cart', 'snap ebt', 'backup', 'best available', 'choose backup', 'continue to checkout', 'view offer', 'coupon', 'new look', 'view items', 'estimated total', 'cart', 'shop', 'save', 'health'];
+
     for(let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      const priceMatch = line.match(priceRegex);
+
+      // Match Kroger price format: $1.25 or $3.19 or $1²⁵ style
+      const priceMatch = line.match(/^\$(\d+)[\.\,](\d{2})$/) || line.match(/^\$(\d+)\.(\d{2})/) || line.match(/\$(\d+\.\d{2})/);
       if(priceMatch) {
-        const price = parseFloat(priceMatch[1]);
-        const name = line.replace(priceRegex, '').replace('$', '').trim();
-        if(name.length > 2) {
-          items.push({ name, price });
-        } else if(i > 0 && lines[i-1].length > 2) {
-          items.push({ name: lines[i-1], price });
+        const price = parseFloat(priceMatch[0].replace('$',''));
+        // Look at the next few lines for the item name
+        for(let j = i+1; j < Math.min(i+4, lines.length); j++) {
+          const candidate = lines[j];
+          const lower = candidate.toLowerCase();
+          // Skip short lines, size lines, and known UI text
+          if(candidate.length < 4) continue;
+          if(lower.match(/^\d+\s*(oz|lb|ct|ml|g|kg|fl oz)/)) continue;
+          if(skipWords.some(w => lower.includes(w))) continue;
+          if(lower.match(/^\$/) ) continue;
+          if(lower.match(/^[\d\.\$\+\-]+$/)) continue;
+          // This looks like a product name
+          items.push({ name: candidate, price });
+          break;
         }
       }
     }
-    res.json({ items, rawText: text });
+
+    // Remove duplicates
+    const seen = new Set();
+    const unique = items.filter(item => {
+      if(seen.has(item.name)) return false;
+      seen.add(item.name);
+      return true;
+    });
+
+    res.json({ items: unique, rawText: text });
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
