@@ -356,7 +356,7 @@ async function handleImageUpload(event) {
     if(d.error) throw new Error(d.error);
     if(!d.items || d.items.length === 0) {
       scanStatus.className = 'status-bar err';
-      scanStatus.textContent = 'No items found — try a clearer screenshot showing item names and prices';
+      scanStatus.textContent = 'No items found. Raw text: ' + (d.rawText || 'nothing').substring(0, 300);
       return;
     }
     scannedItems = d.items.map((item, i) => ({ ...item, selected: true, tempId: 'scan_'+Date.now()+'_'+i }));
